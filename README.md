@@ -51,6 +51,22 @@ venv/bin/python nl_dem.py build DEM_5m.tif nl-dem.pmtiles
 
 The archive's metadata carries `encoding: terrarium`, `tileSize: 512` and the attribution.
 
+## Publishing
+
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml) runs `fetch` and `build` on a GitHub runner and uploads the archive to Hiker Atlas's R2 bucket, as https://public.hikeratlas.com/nl-dem/nl-dem.pmtiles.
+- It runs by hand (Actions → Publish → Run workflow), since the province rarely updates the DEM.
+- It needs the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` secrets: R2 keys with write access to `hikes-public`.
+- If this repo doesn't have them, another hikeratlas repo that does can call it as a reusable workflow:
+
+  ```yaml
+  jobs:
+    publish:
+      uses: hikeratlas/nl-dem/.github/workflows/publish.yml@main
+      with:
+        ref: main
+      secrets: inherit
+  ```
+
 ## Tests
 
 ```sh
