@@ -215,9 +215,12 @@ class Source:
         dst_tr = tr_from_bounds(left, bottom, right, top, TILE, TILE)
         out_h = np.zeros((TILE, TILE), np.float32)
         out_w = np.zeros((TILE, TILE), np.float32)
-        for a, b in ((h, out_h), (wgt, out_w)):
+        # Heights by cubic spline: bilinear leaves slope discontinuities along
+        # every source row, and with the source's 5 m rows landing on ~6 m
+        # tile rows, hillshade shows them as horizontal stripes.
+        for a, b, rs in ((h, out_h, Resampling.cubic_spline), (wgt, out_w, Resampling.bilinear)):
             reproject(a, b, src_transform=src_tr, src_crs=ds.crs, dst_transform=dst_tr, dst_crs='EPSG:3857',
-                      resampling=Resampling.bilinear)
+                      resampling=rs)
         return out_h, blend_weight(out_w)
 
 
