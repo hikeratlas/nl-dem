@@ -6,13 +6,31 @@ name: Publish
 # (hikeratlas/basemap#181).
 #
 # Needs the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets (R2 keys
-# with write access to hikes-public), as hikeratlas/basemap has.
+# with write access to hikes-public). Without them here, another hikeratlas
+# repo that has them can call this workflow (workflow_call) with
+# `secrets: inherit`; it always builds nl-dem's own code.
 #
 # Run by hand: the province rarely updates the DEM. Takes ~25 minutes; the
 # archive is ~3.4 GB.
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: nl-dem commit, branch or tag to build
+        type: string
+        default: main
+  workflow_call:
+    inputs:
+      ref:
+        description: nl-dem commit, branch or tag to build
+        type: string
+        default: main
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
 
 jobs:
   prepare:
@@ -28,7 +46,11 @@ jobs:
       AWS_MAX_ATTEMPTS: 10
 
     steps:
+      # Called from another repo, a bare checkout would get the caller's code.
       - uses: actions/checkout@v7
+        with:
+          repository: hikeratlas/nl-dem
+          ref: ${{ inputs.ref }}
 
       - name: Runner
         run: nproc && free -h && df -h /
