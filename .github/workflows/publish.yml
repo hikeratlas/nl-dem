@@ -1,0 +1,57 @@
+name: Publish
+
+# Builds nl-dem.pmtiles from the province's 5 m DEM (see README.md) and
+# publishes it to Hiker Atlas's R2 bucket as nl-dem/nl-dem.pmtiles, i.e.
+# https://public.hikeratlas.com/nl-dem/nl-dem.pmtiles
+# (hikeratlas/basemap#181).
+#
+# Needs the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets (R2 keys
+# with write access to hikes-public), as hikeratlas/basemap has.
+#
+# Run by hand: the province rarely updates the DEM. Takes ~25 minutes; the
+# archive is ~3.4 GB.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04-arm
+    env:
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      AWS_RETRY_MODE: adaptive
+      AWS_MAX_ATTEMPTS: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Runner
+        run: nproc && free -h && df -h /
+
+      - name: Install Python packages
+        run: python3 -m venv venv && venv/bin/pip install -q -r requirements.txt
+
+      # Streams the 3.6 GB GeoTIFF and its 0.9 GB overviews out of the
+      # province's 4 GB zip, without storing the zip.
+      - name: Fetch the DEM
+        run: venv/bin/python nl_dem.py fetch DEM_5m.tif
+
+      - name: Build the tiles
+        run: venv/bin/python nl_dem.py build DEM_5m.tif nl-dem.pmtiles --jobs "$(nproc)"
+
+      # Some R2 failures aren't retried by the CLI (e.g. "InvalidPart"), so
+      # retry the whole upload too, as hikeratlas/basemap's workflows do.
+      - name: Upload
+        run: |
+          aws configure set default.s3.multipart_chunksize 128MB
+          for i in 1 2 3; do
+            aws s3 cp --no-progress nl-dem.pmtiles s3://hikes-public/nl-dem/nl-dem.pmtiles && break
+            echo "Upload failed (attempt $i)"
+            [ "$i" -lt 3 ] && sleep $((i * 30)) || exit 1
+          done
+          echo "Published https://public.hikeratlas.com/nl-dem/nl-dem.pmtiles ($(( $(stat -c %s nl-dem.pmtiles) / 1048576 )) MiB)" | tee -a "$GITHUB_STEP_SUMMARY"
