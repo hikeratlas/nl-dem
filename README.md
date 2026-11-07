@@ -28,7 +28,7 @@ Against HRDEM lidar near Corner Brook it has an RMSE of 1.75 m, against 4.4 m fo
 - **z13** (~6 m/px at this latitude, close to the source's 5 m) is rendered from the source. **z12–z10** average their four children; a child with no source data is Mapterhorn's tile. Past z13, overzoom.
 - Writes tiles only over the island, padded by one tile. A missing tile means "use Mapterhorn".
 
-The whole island is about 18,000 tiles. That takes about 40 minutes on 8 cores, plus about 2 minutes to fetch the source.
+The whole island is 16,891 tiles (3.4 GB). That took 18 minutes on 4 cores, plus about 2 minutes to fetch the source.
 
 ## Usage
 
